@@ -13,69 +13,37 @@ let provider;
 window.addEventListener("load", () => {
   const ydoc = new Y.Doc();
   provider = new WebsocketProvider("ws://localhost:1234", "only-room-id", ydoc);
+  const ymap = ydoc.getMap("transcripts");
+  const transcriptsContainer = document.getElementById("transcripts");
   provider.on("status", (event) => {
     console.log("status event", event);
   });
   provider.on("sync", (event) => {
     console.log("sync event", event);
-  });
-  const ymap = ydoc.getMap("transcripts");
-  const transcriptsContainer = document.getElementById("transcripts");
-
-  ymap.observe((ymapEvent) => {
-    // ymapEvent.target === ymap; // => true
-
-    // Find out what changed:
-    // Option 1: A set of keys that changed
-    // ymapEvent.keysChanged; // => Set<strings>
-    // // Option 2: Compute the differences
-    // ymapEvent.changes.keys; // => Map<string, { action: 'add'|'update'|'delete', oldValue: any}>
-
-    ymapEvent.changes.keys.forEach((change, key) => {
-      try {
-        if (change.action === "add") {
-          console.log(
-            `Property "${key}" was added. Initial value: "${ymap.get(key)}".`
-          );
-
-          const richText = ydoc
-            .getMap("transcripts")
-            .get(`${key}`)
-            .get("richText");
-          if (!richText) {
-            return;
-          }
-          console.log("richText", richText);
-          addBlockEditor(transcriptsContainer, key, richText);
-        } else if (change.action === "update") {
-          console.log(
-            `Property "${key}" was updated. New value: "${ymap.get(
-              key
-            )}". Previous value: "${change.oldValue}".`
-          );
-          const richText = ydoc
-            .getMap("transcripts")
-            .get(`${key}`)
-            .get("richText");
-          if (!richText) {
-            return;
-          }
-          console.log("richText", richText);
-          addBlockEditor(transcriptsContainer, key, richText);
-        } else if (change.action === "delete") {
-          console.log(
-            `Property "${key}" was deleted. New value: undefined. Previous value: "${change.oldValue}".`
-          );
-          removeBlockDocument(transcriptsContainer, key);
-        } else {
-          console.error("Unexpected change action. ", change.action);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      // updateTranscripts(ymap, transcriptsContainer);
+    console.log(Array.from(ymap.entries()).length)
+    console.log(Array.from(ymap.values())[0].toString())
+    ymap.forEach(transcript=>{
+      addBlockEditor(transcriptsContainer,Date.now(), transcript)
+      transcript.observe(textEvent=>{
+        console.log('Individual change on text', textEvent.target.toString())
+      })
     });
   });
+
+
+
+
+  ymap.observe(docChange=>{
+    console.log('adding a new transcript entry')
+    console.log(ymap.get(docChange.keysChanged.values().next().value).toString())
+    ymap.forEach(transcript=>{
+      addBlockEditor(transcriptsContainer,Date.now(), transcript)
+      transcript.observe(textEvent=>{
+        console.log('Individual change on text', textEvent.target.toString())
+      })
+    });
+  })
+
   /// creates one <p> element for each transcript, and fills it with the transcript text.
   /// then, adds the <p> elements to the container in order of their keys.
   function updateTranscripts(ymap, container) {
@@ -97,14 +65,14 @@ window.addEventListener("load", () => {
     });
   }
 
-  /*
+  
   // Define user name and user name
   // Check the quill-cursors package on how to change the way cursors are rendered
   provider.awareness.setLocalStateField('user', {
-    name: 'Typing Jimmy',
+    name: 'ava editor',
     color: 'blue'
   })
-  */
+  
 
   const connectBtn = document.getElementById("y-connect-btn");
   connectBtn.addEventListener("click", () => {
